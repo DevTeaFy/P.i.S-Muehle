@@ -2,11 +2,11 @@ package de.pis.muehle;
 
 public interface IMuehle {
 	
-//	IMuehle play(Move move);
+	IMuehle play(Move move);
 	
-//	void undoMove(Move move);
+	void undoMove(Move move);
 	
-//	Move generatePerfactMove();
+	Move generatePerfactMove();
 	boolean isGameOver();
 
 }

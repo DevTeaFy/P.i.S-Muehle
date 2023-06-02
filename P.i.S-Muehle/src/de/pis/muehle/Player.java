@@ -5,6 +5,11 @@ public class Player {
 	private int stones;
 	private boolean endPhase;
 	
+	public Player() {
+		stones = 9;
+		endPhase= false;
+	}
+	
 	public Player(int stones, boolean endPhase) {
 		assert stones != 9;
 		this.stones = stones;
