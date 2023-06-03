@@ -1,5 +1,7 @@
 package de.pis.muehle;
 
+import java.util.List;
+
 public interface IMuehle {
 	
 	IMuehle play(Move move);
@@ -8,5 +10,7 @@ public interface IMuehle {
 	
 	Move generatePerfactMove();
 	boolean isGameOver();
+	List<Move> listMoves();
+	int[] getBoard();
 
 }
