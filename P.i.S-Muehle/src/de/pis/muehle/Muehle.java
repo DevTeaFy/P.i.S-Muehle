@@ -1,14 +1,15 @@
 package de.pis.muehle;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 public class Muehle implements IMuehle {
-	
+
+	private static List<int[]> boardstates = new ArrayList<>();
 	private int[] board;
-	private List<int[]> boardstates = new ArrayList<>();
 	private Player currentPlayer;
-	private Player PlayerOne = new Player(-1),PlayerTwo = new Player(1);
+	private static Player PlayerOne = new Player(-1),PlayerTwo = new Player(1);
 	private int[][] mills = {
 	        {0, 1, 2}, {3, 4, 5}, {6, 7, 8},
 	        {0, 9, 21}, {3, 10, 18}, {6, 11, 15},
@@ -28,58 +29,50 @@ public class Muehle implements IMuehle {
 		this.currentPlayer = currentPlayer;
 	}
 	
-	private void switchPlayer() {
-		currentPlayer = getOpponentPlayer();
+	public Player getCurrentPlayer() {
+		return currentPlayer;
 	}
-	private Player getOpponentPlayer() {
+	
+	public void switchPlayer() {
+		currentPlayer = getOpponent();
+	}
+	private Player getOpponent() {
 		return currentPlayer.getValue() == -1 ? PlayerTwo : PlayerOne;
 	}
 	
 	
 	public IMuehle play(Move move) {
+		assert !isGameOver();
+	    if (!isPossibleMove(move)) return this;
 	    Muehle newState = new Muehle(board.clone(), currentPlayer);
-	    if (newState.isPossibleMove(currentPlayer, move)) {
-	        switch (newState.currentPlayer.getPhase()) {
-	            case SETTING:
-	            	newState.board[move.to()] = newState.currentPlayer.getValue();
-	            	newState.currentPlayer.removeStoneToPlace();
-	        	    if(newState.currentPlayer.getPlacedStones() == 9) {
-	        	    	newState.currentPlayer.setPhase(Phase.MOVING);
-	        	    }
-	                break;
-	            case MOVING: case END:
-	            	newState.board[move.from()] = 0;
-	            	newState.board[move.to()] = newState.currentPlayer.getValue();
-	                break;
-	        }
-		    if (newState.isMillFormed(move.to())) {
-		    	
-		    }
-	        newState.switchPlayer();
-	        if(isGameOver()) {
-	        	
-	        }
-	    }
-	    
+        boardstates.add(this.board);
+        switch (newState.currentPlayer.getPhase()) {
+            case SETTING:
+            	newState.board[move.to()] = newState.currentPlayer.getValue();
+            	newState.currentPlayer.removeStoneToPlace();
+            	System.out.println(newState.currentPlayer.getPlacedStones());
+        	    if(newState.currentPlayer.getPlacedStones() == 9)
+        	    	newState.currentPlayer.setPhase(Phase.MOVING);
+                break;
+            case MOVING: case END:
+            	newState.board[move.from()] = 0;
+            	newState.board[move.to()] = newState.currentPlayer.getValue();
+                break;
+        }
+        newState.switchPlayer();
 	    return newState;
 	}
-	
-	private boolean isMillFormed(int position) {
+	public boolean isMillFormed(int position) {
 	    int playerValue = currentPlayer.getValue();
 	    for (int[] mill : mills) {
-	        if (board[mill[0]] == playerValue &&
-	            board[mill[1]] == playerValue &&
+	        if (board[mill[0]] == playerValue && 
+	            board[mill[1]] == playerValue && 
 	            board[mill[2]] == playerValue && 
 	            (mill[0] == position || mill[1] == position || mill[2] == position)) {
 	            return true;
 	        }
 	    }
 	    return false;
-	}
-
-	public void undoMove(Move move) {
-		board[move.to()] = 0;
-		board[move.from()] = currentPlayer.getValue();
 	}
 
 	public Move generatePerfactMove() {
@@ -92,28 +85,29 @@ public class Muehle implements IMuehle {
 	    List<Move> possibleMoves = listMoves();
 	    
 	    for (Move move : possibleMoves) {
-	        IMuehle nextState = play(move);
+	        Muehle nextState = (Muehle)play(move);
 	        int value = miniMax(nextState, depth - 1, alpha, beta, false);
 	        
 	        if (value > bestValue) {
 	            bestValue = value;
 	            bestMove = move;
 	        }
-	        
-	        undoMove(move);
+	        //UndoMove
+    		board[move.to()] = 0;
+    		if(move.from() != -1) board[move.from()] = currentPlayer.getValue();
 	    }
 	    
 	    return bestMove;
 	}
 
-	private int miniMax(IMuehle state, int depth, int alpha, int beta, boolean isMaximizingPlayer) {
+	private int miniMax(Muehle state, int depth, int alpha, int beta, boolean isMaximizingPlayer) {
 	    if (depth == 0 || state.isGameOver()) {
 	        return evaluateState(state);
 	    }
 	    List<Move> possibleMoves = state.listMoves();
 	    int wert = isMaximizingPlayer ? Integer.MIN_VALUE : Integer.MAX_VALUE;
         for (Move move : possibleMoves) {
-            IMuehle nextState = state.play(move);
+            Muehle nextState = (Muehle) state.play(move);
             int eval = miniMax(nextState, depth - 1, alpha, beta, !isMaximizingPlayer);
             wert = isMaximizingPlayer ? Math.max(wert, eval) : Math.min(wert, eval);
             alpha = isMaximizingPlayer ? Math.max(alpha, eval) : Math.min(beta, eval);
@@ -124,7 +118,9 @@ public class Muehle implements IMuehle {
             if (!isMaximizingPlayer && beta <= alpha) {
                 break; // Alpha-Cutoff
             }
-            state.undoMove(move);
+            //UndoMove...
+    		board[move.to()] = 0;
+    		board[move.from()] = currentPlayer.getValue();
         }
         return wert;
 	}
@@ -189,21 +185,20 @@ public class Muehle implements IMuehle {
 	public boolean isGameOver() {
 		if(listMoves().size() == 0)return true;
 		if(!currentPlayer.hasStonesToCreateMill())return true;
-		if(!getOpponentPlayer().hasStonesToCreateMill())return true;
-		//Wenn 3 mal das selbe board auch!
+		if(!getOpponent().hasStonesToCreateMill())return true;
+        long size = boardstates.stream()
+        		.filter(arr -> boardstates.stream().filter(w -> Arrays.equals(w, arr)).count() >= 3)
+        		.count();
+        if(size >= 3)return true;
 		return false;
 	}
 	private int countMills(IMuehle state, Player player) {
-	    
-	    
 	    int millCount = 0;
-	    
 	    for (int[] mill : mills) {
 	        if (isMill(state, player, mill)) {
 	            millCount++;
 	        }
 	    }
-	    
 	    return millCount;
 	}
 
@@ -216,29 +211,21 @@ public class Muehle implements IMuehle {
 	    }
 	    return true;
 	}
-	public List<Move> listMoves(){
+	public List<Move> listMoves() {
 		ArrayList<Move> moves = new ArrayList<>();
 		switch (currentPlayer.getPhase()) {
 		case SETTING: {
 			for (int j = 0; j < 24; j++) {
 				Move m = new Move(-1,j);
-				if(isPossibleMove(currentPlayer,m))moves.add(m);
+				if(isPossibleMove(m))moves.add(m);
 			}
 			return moves;
 		}
-		case MOVING:{
+		case MOVING: case END:{
 			for(int i = 0; i < 24; i++) {
 				for (int j = 0; j < 24; j++) {
 					Move m = new Move(i,j);
-					if(isPossibleMove(currentPlayer,m))moves.add(m);
-				}
-			}
-		}
-		case END:{
-			for(int i = 0; i < 24; i++) {
-				for (int j = 0; j < 24; j++) {
-					Move m = new Move(i,j);
-					if(isPossibleMove(currentPlayer,m))moves.add(m);
+					if(isPossibleMove(m))moves.add(m);
 				}
 			}
 			return moves;
@@ -249,8 +236,8 @@ public class Muehle implements IMuehle {
 	}
 	
 	
-	private boolean isPossibleMove(Player p,Move m) {
-		switch (p.getPhase()) {
+	public boolean isPossibleMove(Move m) {
+		switch (currentPlayer.getPhase()) {
 		case SETTING: case END:{
 			if(board[m.to()] == 0)return true;
 			return false;
@@ -261,13 +248,12 @@ public class Muehle implements IMuehle {
 			return true;
 		}
 		default:
-			throw new IllegalArgumentException("Unexpected value: " + p.getPhase());
+			throw new IllegalArgumentException("Unexpected value: " + currentPlayer.getPhase());
 		}
 		
 	} 
 
 	private boolean areNeighbors(int from, int to) {
-		if(from == -1 && currentPlayer.getPhase() == Phase.SETTING)return true;
 		assert (from >= 0 && from <= 23) && (to >= 0 && to<=23); 
 		if (inACircle(from, to) && (from + 1 == to || from - 1 == to)) return true; // Normales +1 auf einem Ring oder -1 auf einem Ring
 		if (inACircle(from, to) && ((((from + 1) / 8 > to / 8) && (from - 7 == to)) || (((from - 1) / 8 < to / 8) && (from + 7 == to)) || ((from - 1 == -1)))) 
@@ -311,4 +297,5 @@ public class Muehle implements IMuehle {
 		final int[] b = this.board;
 		return b;
 	}
+	
 }

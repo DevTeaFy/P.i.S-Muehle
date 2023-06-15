@@ -5,12 +5,16 @@ import java.util.List;
 public interface IMuehle {
 	
 	IMuehle play(Move move);
-	
-	void undoMove(Move move);
-	
 	Move generatePerfactMove();
-	boolean isGameOver();
 	List<Move> listMoves();
+	
+	Player getCurrentPlayer();
+	
+	boolean isPossibleMove(Move m);
+	boolean isGameOver();
+	boolean isMillFormed(int position);
+	
 	int[] getBoard();
 
+	void switchPlayer();
 }
